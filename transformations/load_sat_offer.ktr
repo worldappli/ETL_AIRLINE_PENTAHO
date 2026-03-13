@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transformation xmlns="http://www.pentaho.com/kettle/transformation/5.4"
+                xmlns:xi="http://www.w3.org/2001/XInclude">
+  <info>
+    <name>load_sat_offer</name>
+    <description>Chargement satellite offer avec hashdiff et end-dating</description>
+    <extended_description></extended_description>
+    <trans_version>1</trans_version>
+    <created_user>Ruben</created_user>
+    <created_date>2025/09/29 21:00:00.000</created_date>
+    <modified_user>Ruben</modified_user>
+    <modified_date>2025/09/29 21:00:00.000</modified_date>
+    <type>Transformation</type>
+  </info>
+
+  <!-- Connexion à la base -->
+  <connection>
+    <name>Airline_PG</name>
+    <server>localhost</server>
+    <type>PostgreSQL</type>
+    <access>Native</access>
+    <database>airline_db</database>
+    <port>5432</port>
+    <username>airline_user</username>
+    <password></password>
+    <auto_commit>Y</auto_commit>
+    <using_connection_pool>Y</using_connection_pool>
+    <pool_size>10</pool_size>
+  </connection>
+
+  <step>
+    <name>Input_Staging</name>
+    <type>TableInput</type>
+    <connection>Airline_PG</connection>
+    <sql>
+      <![CDATA[
+        SELECT
+          hk_offer,
+          departure_time,
+          arrival_time,
+          stops,
+          class,
+          duration,
+          duration_min,
+          days_left,
+          price,
+          src_file_name AS record_source,
+          src_load_ts AS load_dts
+        FROM stg.flights_offers_raw
+      ]]>
+    </sql>
+    <step_error_handling>
+      <is_error_ignored>N</is_error_ignored>
+      <nr_errors_to_ignore>0</nr_errors_to_ignore>
+      <alert_fields>N</alert_fields>
+      <output_fields>N</output_fields>
+      <error_fields></error_fields>
+      <error_row_handling>0</error_row_handling>
+    </step_error_handling>
+  </step>
+
+  <step>
+    <name>Calc_Hashdiff</name>
+    <type>UserDefinedJavaExpression</type>
+    <fields>
+      <field>
+        <name>new_hashdiff</name>
+        <type>String</type>
+        <length>-1</length>
+        <precision>-1</precision>
+        <expression><![CDATA[
+          org.apache.commons.codec.digest.DigestUtils.sha256Hex(
+            (departure_time==null?"":departure_time) + "|" +
+            (arrival_time==null?"":arrival_time) + "|" +
+            (stops==null?"":stops.toString()) + "|" +
+            (class==null?"":class) + "|" +
+            (duration==null?"":duration.toString()) + "|" +
+            (duration_min==null?"":duration_min.toString()) + "|" +
+            (days_left==null?"":days_left.toString()) + "|" +
+            (price==null?"":price.toString())
+          )
+        ]]></expression>
+      </field>
+    </fields>
+  </step>
+
+  <step>
+    <name>Lookup_Current_Sat</name>
+    <type>DatabaseLookup</type>
+    <connection>Airline_PG</connection>
+    <schema>rdv</schema>
+    <table>sat_offer</table>
+    <key>
+      <name>hk_offer</name>
+      <field>hk_offer</field>
+    </key>
+    <return>
+      <name>hashdiff_current</name>
+      <rename>hashdiff_current</rename>
+      <type>String</type>
+    </return>
+    <return>
+      <name>is_current</name>
+      <rename>is_current</rename>
+      <type>Boolean</type>
+    </return>
+  </step>
+
+  <step>
+    <name>Filter_Rows</name>
+    <type>FilterRows</type>
+    <condition>
+      <![CDATA[
+        is_current IS NULL OR new_hashdiff != hashdiff_current
+      ]]>
+    </condition>
+    <step_error_handling>
+      <is_error_ignored>N</is_error_ignored>
+    </step_error_handling>
+  </step>
+
+  <step>
+    <name>Update_Old_Sat</name>
+    <type>Update</type>
+    <connection>Airline_PG</connection>
+    <schema>rdv</schema>
+    <table>sat_offer</table>
+    <key>
+      <name>hk_offer</name>
+      <field>hk_offer</field>
+    </key>
+    <update>
+      <name>valid_to</name>
+      <value>${load_dts}</value>
+    </update>
+    <update>
+      <name>is_current</name>
+      <value>FALSE</value>
+    </update>
+  </step>
+
+  <step>
+    <name>Insert_New_Sat</name>
+    <type>TableOutput</type>
+    <connection>Airline_PG</connection>
+    <schema>rdv</schema>
+    <table>sat_offer</table>
+    <truncate>N</truncate>
+    <ignore_errors>N</ignore_errors>
+    <commit>1000</commit>
+    <fields>
+      <field>
+        <column>hk_offer</column>
+        <stream_name>hk_offer</stream_name>
+      </field>
+      <field>
+        <column>hashdiff</column>
+        <stream_name>new_hashdiff</stream_name>
+      </field>
+      <field><column>departure_time</column><stream_name>departure_time</stream_name></field>
+      <field><column>arrival_time</column><stream_name>arrival_time</stream_name></field>
+      <field><column>stops</column><stream_name>stops</stream_name></field>
+      <field><column>class</column><stream_name>class</stream_name></field>
+      <field><column>duration</column><stream_name>duration</stream_name></field>
+      <field><column>duration_min</column><stream_name>duration_min</stream_name></field>
+      <field><column>days_left</column><stream_name>days_left</stream_name></field>
+      <field><column>price</column><stream_name>price</stream_name></field>
+      <field><column>load_dts</column><stream_name>load_dts</stream_name></field>
+      <field><column>record_source</column><stream_name>record_source</stream_name></field>
+      <field><column>valid_from</column><stream_name>load_dts</stream_name></field>
+      <field><column>valid_to</column><stream_name>9999-12-31</stream_name></field>
+      <field><column>is_current</column><stream_name>TRUE</stream_name></field>
+    </fields>
+  </step>
+
+  <hop><from>Input_Staging</from><to>Calc_Hashdiff</to></hop>
+  <hop><from>Calc_Hashdiff</from><to>Lookup_Current_Sat</to></hop>
+  <hop><from>Lookup_Current_Sat</from><to>Filter_Rows</to></hop>
+  <hop><from>Filter_Rows</from><to>Update_Old_Sat</to></hop>
+  <hop><from>Filter_Rows</from><to>Insert_New_Sat</to></hop>
+</transformation>

@@ -1,0 +1,12 @@
+step_name;attribute;value
+SRC_TABLE_INPUT;SQL;SELECT hk_offer, departure_time, arrival_time, stops, class, duration, duration_min, days_left, price, src_file_name AS record_source, src_load_ts AS load_dts FROM stg.flights_offers_raw
+TGT_TABLE_INPUT_CURRENT;SQL;SELECT hk_offer, hashdiff as hashdiff_current FROM rdv.sat_offer WHERE is_current = TRUE
+MERGE_JOIN_SRC_TGT;KEY_FIELD;hk_offer
+CALC_VALUE_HASH;FIELDS;departure_time,arrival_time,stops,class,duration,duration_min,days_left,price
+INSERT_NEW;TABLE;rdv.sat_offer
+INSERT_NEW;FIELDS;hk_offer,hashdiff,departure_time,arrival_time,stops,class,duration,duration_min,days_left,price,load_dts,record_source,valid_from,valid_to,is_current
+UPDATE_OLD;TABLE;rdv.sat_offer
+UPDATE_OLD;KEY_FIELD;hk_offer
+CONSTANTS;VALID_TO;9999-12-31 23:59:59
+CONSTANTS;VALID_FROM_FIELD;load_dts
+CONSTANTS;IS_CURRENT_TRUE;TRUE

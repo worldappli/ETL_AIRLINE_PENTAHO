@@ -1,0 +1,22 @@
+step_name;attribute;value
+SRC_TABLE_INPUT;SQL;SELECT o.hk_offer, s.departure_time, s.arrival_time, CASE WHEN s.stops IN ('non-stop','nonstop','none','zero','0') THEN 0 WHEN s.stops IN ('one','1','1 stop','1_stop') THEN 1 WHEN s.stops IN ('two','2','2 stop','2_stop','2 stops') THEN 2 ELSE 3 END AS stops, s.class, s.duration, ROUND(s.duration * 60) AS duration_min, s.days_left, s.price, NOW() AS load_dts, 'stg_flights_offers_raw' AS record_source FROM stg.flights_offers_raw s JOIN rdv.hub_offer o ON o.offer_bk = s.idx::text;
+TGT_TABLE_INPUT_CURRENT;SQL;SELECT hk_offer, hashdiff, is_current FROM rdv.sat_offer WHERE is_current = TRUE;
+MERGE_JOIN_SRC_TGT;KEY_FIELD1;hk_offer
+MERGE_JOIN_SRC_TGT;KEY_FIELD2;hk_offer
+CALC_VALUE_HASH;FIELD_NAME;departure_time
+CALC_VALUE_HASH;FIELD_NAME;arrival_time
+CALC_VALUE_HASH;FIELD_NAME;stops
+CALC_VALUE_HASH;FIELD_NAME;class
+CALC_VALUE_HASH;FIELD_NAME;duration
+CALC_VALUE_HASH;FIELD_NAME;duration_min
+CALC_VALUE_HASH;FIELD_NAME;days_left
+CALC_VALUE_HASH;FIELD_NAME;price
+INSERT_NEW;TABLE;rdv.sat_offer
+INSERT_NEW;FIELDS;hk_offer,hashdiff,departure_time,arrival_time,stops,class,duration,duration_min,days_left,price,load_dts,record_source,valid_from,valid_to,is_current
+UPDATE_OLD;TABLE;rdv.sat_offer
+UPDATE_OLD;KEY_FIELD;hk_offer
+INSERT_NEW_AFTER_UPDATE;TABLE;rdv.sat_offer
+INSERT_NEW_AFTER_UPDATE;FIELDS;hk_offer,hashdiff,departure_time,arrival_time,stops,class,duration,duration_min,days_left,price,load_dts,record_source,valid_from,valid_to,is_current
+CONSTANTS;VALID_TO;9999-12-31 23:59:59
+CONSTANTS;VALID_FROM_FIELD;load_dts
+CONSTANTS;IS_CURRENT_TRUE;TRUE

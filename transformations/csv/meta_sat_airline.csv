@@ -1,0 +1,23 @@
+step_name;attribute;value
+SRC_TABLE_INPUT;SQL;SELECT hk_airline, airline_bk, record_source FROM rdv.hub_airline
+TGT_TABLE_INPUT_CURRENT;SQL;SELECT hk_airline, hashdiff, is_current FROM rdv.sat_airline WHERE is_current = TRUE
+MERGE_JOIN_SRC_TGT;KEY_FIELD1;hk_airline
+MERGE_JOIN_SRC_TGT;KEY_FIELD2;hk_airline
+CALC_VALUE_HASH;FIELD_NAME;airline_bk
+INSERT_NEW;TABLE;rdv.sat_airline
+step_name;attribute;value
+INSERT_NEW;DATABASE_STREAM_NAME;hk_airline
+INSERT_NEW;DATABASE_STREAM_NAME;hash_value
+INSERT_NEW;DATABASE_STREAM_NAME;airline_bk
+INSERT_NEW;DATABASE_STREAM_NAME;load_date
+INSERT_NEW;DATABASE_STREAM_NAME;record_source
+INSERT_NEW;DATABASE_STREAM_NAME;valid_from_add
+INSERT_NEW;DATABASE_STREAM_NAME;valid_to_add
+INSERT_NEW;DATABASE_STREAM_NAME;is_current_add
+UPDATE_OLD;TABLE;rdv.sat_airline
+UPDATE_OLD;KEY_FIELD;hk_airline
+INSERT_NEW_AFTER_UPDATE;TABLE;rdv.sat_airline
+INSERT_NEW_AFTER_UPDATE;FIELDS;hk_airline,hashdiff,airline_name,load_dts,record_source,valid_from,valid_to,is_current
+CONSTANTS;VALID_TO;9999-12-31 23:59:59
+CONSTANTS;VALID_FROM_FIELD;load_dts
+CONSTANTS;IS_CURRENT_TRUE;TRUE
